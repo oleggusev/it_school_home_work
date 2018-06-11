@@ -22,11 +22,26 @@ df.columns = ['preg', 'plas', 'pres', 'skin', 'test', 'mass', 'pedi', 'age', 'cl
 
 print(df)
 
+
+def histogram(col):
+    hist, bins = np.histogram(col, bins='auto')
+    width = 0.7 * (bins[1] - bins[0])
+    center = (bins[:-1] + bins[1:]) / 2
+    plt.bar(center, hist, align='center', width=width)
+    plt.title(col.name + ' avg: ' + str(round(col.mean(), 2)) + ' median: ' + str(col.median()))
+    plt.show()
+
+
+df.apply(histogram)
+
+
 # print(df.mean(), df.median())
+exit()
 
 
 def norm_arr(column):
     # TODO: Roman, please, check the logic for median rate, ok?
+    # https://habr.com/company/mlclass/blog/247751/
     if abs(column.mean() - column.median()) / column.mean() > 0.5:
         mean = column.median()
     else:

@@ -19,6 +19,15 @@ names = ['preg', 'plas', 'pres', 'skin', 'test', 'mass', 'pedi', 'age', 'class']
 # df = pd.read_csv(url, names=names)
 df = pd.read_csv('data/india/pima-indians-diabetes.data.csv', names=names)
 
+# 1) откинуть 2.5% max и min и откинуть 20% тестовых данных
+# (можно вообще не разбивать вначале, если данных много, а сделать это в конце)
+#
+# 2) посчитать среднее и медиану  на  80% данных, если их мало
+#
+# 3) нормализация исходного дата сета с определённой median и  mean
+#
+# перебор моделей регресии или класификации...
+
 
 def norm_arr(arr):
     mean = arr.mean()
@@ -56,9 +65,9 @@ def stratified_split(y, proportion=0.8):
     return train_inds, test_inds
 
 
-y = df['class']
-
-train, test = stratified_split(y)
+# y = df['class']
+#
+# train, test = stratified_split(y)
 
 # print('train: ')
 # print(train)
@@ -66,20 +75,20 @@ train, test = stratified_split(y)
 # print(test)
 
 
-X_train = df.iloc[train, 0:8]
-X_test = df.iloc[test, 0:8]
-
-y_train = df['class'][train]
-y_test = df['class'][test]
+# X_train = df.iloc[train, 0:8]
+# X_test = df.iloc[test, 0:8]
+#
+# y_train = df['class'][train]
+# y_test = df['class'][test]
 
 logreg = LogisticRegression()
-logreg.fit(X_train, y_train)
+# logreg.fit(X_train, y_train)
 
 rf = RandomForestClassifier()
 # y_pred = rf.predict(X_test)
 # y_pred
 
-y_pred = logreg.predict(X_test)
+# y_pred = logreg.predict(X_test)
 
 # print('y_pred')
 # print(y_pred)
@@ -146,15 +155,18 @@ def BCR(y, yp):
     return (accuracy(y[m], yp[m]) + accuracy(y[~m], yp[~m])) / 2
 
 
-BCR(y_test, y_pred)
+# BCR(y_test, y_pred)
 
 
+# cross validation is number of cycles(folds which launch our model(classifier)
 def CV(df, classifier, nfold, norm=True):
     acc = []
     for i in range(nfold):
         y = df['class']
+        # split data set for test AND train
         train, test = stratified_split(y)
 
+        # get normalized OR not normalized columns from data set
         if norm:
             X_train = norm_df(df.iloc[train, 0:8])
             X_test = norm_df(df.iloc[test, 0:8])
@@ -165,26 +177,44 @@ def CV(df, classifier, nfold, norm=True):
         y_train = y[train]
         y_test = y[test]
 
+        # model learn on train data
         classifier.fit(X_train, y_train)
+        # model takes real data and do prediction on 20% of test data
         y_pred = classifier.predict(X_test)
 
+        # kisya = np.array([[1, 75, 60, 0, 0, 18.4, 0.47, 30]])
+        # kisya = pd.DataFrame({1, 75, 60, 0, 0, 18.4, 0.47, 30})
+        #kisya = np.array([])
+        # kisya = np.array([[3, 120, 70, 20, 32, 31, 0.47, 30]])
+        # # print(kisya)
+        # y_kisya = classifier.predict(kisya)
+        # print('y_kisya')
+        # print(y_kisya)
+
+        # calculated losses between train and test labels
         acc.append(accuracy(y_test, y_pred))
 
     return acc
 
 
-# print('=LogisticRegression: ')
+fold = 100
+# # LOSS calculation
+# print('=LogisticRegression (yes/no): ')
 # print('Norm')
-# norm2 = CV(df, logreg, 100)
+# norm2 = CV(df, logreg, fold)
 # print(np.sum(norm2) / len(norm2))
 # print('Not norm')
-# not_norm2 = CV(df, logreg, 100, False)
+# not_norm2 = CV(df, logreg, fold, False)
 # print(np.sum(not_norm2) / len(not_norm2))
 #
-# print('=RandomForestClassifier: ')
+# print('=RandomForestClassifier (tree for yes/no): ')
 # print('Norm')
-# norm2 = CV(df, rf, 100)
+# norm2 = CV(df, rf, fold)
 # print(np.sum(norm2) / len(norm2))
 # print('Not norm')
-# not_norm2 = CV(df, rf, 100, False)
+# not_norm2 = CV(df, rf, fold, False)
 # print(np.sum(not_norm2) / len(not_norm2))
+
+print(df)
+norm2 = CV(df, logreg, fold)
+print(np.sum(norm2) / len(norm2))
