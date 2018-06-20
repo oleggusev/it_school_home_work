@@ -17,7 +17,7 @@ names = ['preg', 'plas', 'pres', 'skin', 'test', 'mass', 'pedi', 'age', 'class']
 # Outcome - Class variable (0 or 1) - Numeric
 
 # df = pd.read_csv(url, names=names)
-df = pd.read_csv('data/india/pima-indians-diabetes.data.csv', names=names)
+df = pd.read_csv('merchant/india/pima-indians-diabetes.merchant.csv', names=names)
 
 # 1) откинуть 2.5% max и min и откинуть 20% тестовых данных
 # (можно вообще не разбивать вначале, если данных много, а сделать это в конце)
@@ -163,10 +163,10 @@ def CV(df, classifier, nfold, norm=True):
     acc = []
     for i in range(nfold):
         y = df['class']
-        # split data set for test AND train
+        # split merchant set for test AND train
         train, test = stratified_split(y)
 
-        # get normalized OR not normalized columns from data set
+        # get normalized OR not normalized columns from merchant set
         if norm:
             X_train = norm_df(df.iloc[train, 0:8])
             X_test = norm_df(df.iloc[test, 0:8])
@@ -177,9 +177,9 @@ def CV(df, classifier, nfold, norm=True):
         y_train = y[train]
         y_test = y[test]
 
-        # model learn on train data
+        # model learn on train merchant
         classifier.fit(X_train, y_train)
-        # model takes real data and do prediction on 20% of test data
+        # model takes real merchant and do prediction on 20% of test merchant
         y_pred = classifier.predict(X_test)
 
         # kisya = np.array([[1, 75, 60, 0, 0, 18.4, 0.47, 30]])

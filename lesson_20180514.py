@@ -21,7 +21,7 @@ names = ['preg', 'plas', 'pres', 'skin', 'test', 'mass', 'pedi', 'age', 'class']
 # Outcome - Class variable (0 or 1) - Numeric
 
 # df = pd.read_csv(url, names=names)
-df = pd.read_csv('data/india/pima-indians-diabetes.data.csv', names=names)
+df = pd.read_csv('merchant/india/pima-indians-diabetes.merchant.csv', names=names)
 
 # df.boxplot()
 #
@@ -83,10 +83,10 @@ def CV(df, classifier, nfold, norm=True, all_columns=True):
     acc = []
     for i in range(nfold):
         y = df['class']
-        # split data set for test AND train
+        # split merchant set for test AND train
         train, test = stratified_split(y)
 
-        # get normalized OR not normalized columns from data set
+        # get normalized OR not normalized columns from merchant set
         if norm:
             if (all_columns):
                 X_train = norm_df(df.iloc[train, 0:8])
@@ -105,9 +105,9 @@ def CV(df, classifier, nfold, norm=True, all_columns=True):
         y_train = y[train]
         y_test = y[test]
 
-        # model learn on train data
+        # model learn on train merchant
         classifier.fit(X_train, y_train)
-        # model takes real data and do prediction on 20% of test data
+        # model takes real merchant and do prediction on 20% of test merchant
         y_pred = classifier.predict(X_test)
 
         # calculated losses between train and test labels
@@ -121,11 +121,11 @@ def CV_PLUS(df, classifier, nfold, norm=True, all_columns=True, col=[]):
     acc = []
     for i in range(nfold):
         y = df['class']
-        # split data set for test AND train
+        # split merchant set for test AND train
         train, test = stratified_split(y)
 
         columns = ['age', 'plas', 'preg', 'pedi']
-        # get normalized OR not normalized columns from data set
+        # get normalized OR not normalized columns from merchant set
         if norm:
             if (all_columns):
                 X_train = norm_df(df.iloc[train, 0:8])
@@ -144,9 +144,9 @@ def CV_PLUS(df, classifier, nfold, norm=True, all_columns=True, col=[]):
         y_train = y[train]
         y_test = y[test]
 
-        # model learn on train data
+        # model learn on train merchant
         classifier.fit(X_train, y_train)
-        # model takes real data and do prediction on 20% of test data
+        # model takes real merchant and do prediction on 20% of test merchant
         y_pred = classifier.predict(X_test)
 
         # calculated losses between train and test labels

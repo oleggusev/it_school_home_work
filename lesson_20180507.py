@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 #import scipy
 
 # https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv
-df = pd.read_csv('data/india/pima-indians-diabetes.data.csv')
+df = pd.read_csv('merchant/india/pima-indians-diabetes.merchant.csv')
 
 df.columns = ['preg', 'plas', 'pres', 'skin', 'test', 'mass', 'pedi', 'age', 'class']
 
@@ -57,7 +57,7 @@ def norm_arr(column):
 # result = df.apply(norm_arr)
 # print(result)
 
-# other way: output normalized data
+# other way: output normalized merchant
 # for feature in df.columns:
 #     nrm = norm_arr(df[feature])
 #     print(feature)
@@ -169,7 +169,7 @@ def plot_class():
 # # test = df['mass'][~msk]
 
 print('')
-print('Divide data to test and training sets')
+print('Divide merchant to test and training sets')
 
 yes = df[df['class'] == 1]
 # print(yes)
@@ -191,7 +191,7 @@ msk_no = np.random.rand(len(no)) < 0.8
 # Unite arrays to Train
 train_source = [yes[msk_yes], no[msk_no]]
 train_source = pd.concat(train_source)
-# Filter normalized array by source for Train data set
+# Filter normalized array by source for Train merchant set
 train = df_std.ix[train_source.index]
 print('Train\'s set count = ' + str(train['preg'].count()))
 print(train)
@@ -199,7 +199,7 @@ print(train)
 # Unite arrays to Test
 test_source = [yes[~msk_yes], no[~msk_no]]
 test_source = pd.concat(test_source)
-# Filter normalized array by source for Test data set
+# Filter normalized array by source for Test merchant set
 test = df_std.ix[test_source.index]
 print('Test\'s set count =  ' + str(test['preg'].count()))
 print(test)

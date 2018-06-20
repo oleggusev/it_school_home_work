@@ -20,7 +20,7 @@ import numpy as np
 
 
 
-df = pd.read_csv('data/autos/imports-85.data.csv')
+df = pd.read_csv('merchant/autos/imports-85.merchant.csv')
 
 df.columns = ['symboling', 'normalized-losses', 'make', 'fuel-type', 'aspiration ', 'num-of-doors ', 'body-style',
                 'drive-wheels', 'engine-location', 'wheel-base', 'length', 'width', 'height', 'curb-weight',
