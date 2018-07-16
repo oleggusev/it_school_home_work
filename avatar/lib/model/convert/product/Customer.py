@@ -23,7 +23,7 @@ class Customer(AeroSpike, FileSQLite, Debug):
         'bought_product'
     }
     fields_categorized = {
-        # 'category_id', TODO: fix it in magento and add
+        'category_id',
         'country',
         'city',
         'device_type',

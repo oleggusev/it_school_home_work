@@ -17,7 +17,7 @@ class Avatar(Customer):
     # convert data from SQLite to AeroSpoke
     def run(self):
         # TODO: only for tests
-        # unlock = {'date_from': date.today().strftime("%Y%m%d"), 'in_progress': 0}
+        # unlock = {'date_from': (date.today() - timedelta(30)).strftime("%Y%m%d"), 'in_progress': 0}
         # self.as_row_write(unlock, self.pk_date_from)
         if not self.check_merchant() or not self.get_merchant_files_dir():
             return False
@@ -46,7 +46,7 @@ class Avatar(Customer):
             self.log('Avatar: no new product files for merchant id : ' + str(self.merchant_id))
             return False
         # else:
-        # TODO: LOCK current merchant
+        # TODO: LOCK current merchant process
         lock = {'in_progress': 1}
         self.as_row_write(lock, self.pk_date_from)
         print(self.as_row_read(self.pk_date_from))
@@ -55,7 +55,7 @@ class Avatar(Customer):
         self.add_customers_to_db(file_paths)
 
         # save current date to DB - as last date which will take files ONLY from this date
-        # TODO: and UNLOCK current process - anti-double cron launch
+        # TODO: UNLOCK current merchant process - anti-double cron launch
         unlock = {'date_from': date.today().strftime("%Y%m%d"), 'in_progress': 0}
         self.as_row_write(unlock, self.pk_date_from)
         print(self.as_row_read(self.pk_date_from))

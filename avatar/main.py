@@ -1,6 +1,5 @@
 from avatar.lib.Avatar import Avatar
 import time
-import datetime
 
 # here will be merchant cycle, which will
 # read all files from folder ./a_merchant/merchant_id/product/*
@@ -13,8 +12,4 @@ avatarObject = Avatar(merchant_id)
 avatarObject.run()
 
 print('----------------------')
-print(
-    datetime.datetime.fromtimestamp(
-        time.time() - start_time
-    ).strftime('%Y-%m-%d %H:%M:%S')
-)
+print(str(round((time.time() - start_time) / 60, 2)) + ' mins ')
