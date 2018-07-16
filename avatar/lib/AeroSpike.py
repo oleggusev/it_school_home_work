@@ -1,4 +1,5 @@
 import aerospike
+# from aerospike import predicates as p
 import sys
 from avatar.lib.Debug import Debug
 
@@ -10,9 +11,9 @@ class AeroSpike(Debug):
     config = {'hosts': [('172.28.128.3', 3000)]}
     client = False
     namespace = 'test'
-    table_product_customers_prefix = 'cs_product_customers_'  # + str(self.merchant_id)
-    key_for_hashes_columns_products = 'hashes_columns_for_customers_products'
-    table_hashes_columns_relations = 'cs_hashes_columns_relations'
+    table_merchant_actions = 'cs_merchant_product_actions_'  # + str(self.merchant_id)
+    key_for_features = 'key_for_allowed_features_'  # + str(self.merchant_id)
+    table_action_features = 'cs_features_for_merchants'
 
     def __init__(self):
         # Create a client and connect it to the cluster
@@ -28,7 +29,7 @@ class AeroSpike(Debug):
     #   'name': 'John Doe 3',
     #   'age': 333
     # })
-    def as_row_write(self, row, primary_key, table='cs_merchants'):
+    def as_row_write(self, row, primary_key, table='cs_merchant_events'):
         # Records are addressable via a tuple of (namespace(DB name), set(Table Name), key(Primary Key))
         param = (self.namespace, table, str(primary_key))
         try:
@@ -40,7 +41,7 @@ class AeroSpike(Debug):
                 Debug.log(self, 'AeroSpike: as_row_write - ' + str(e))
             return False
 
-    def as_row_read(self, primary_key, table='cs_merchants'):
+    def as_row_read(self, primary_key, table='cs_merchant_events'):
         # Records are addressable via a tuple of (namespace(DB name), set(Table Name), key(Primary Key))
         param = (self.namespace, table, primary_key)
         try:
@@ -52,6 +53,16 @@ class AeroSpike(Debug):
                 Debug.log(self, 'AeroSpike: as_row_read - ' + str(e))
             return False
         return row
+
+    def as_get_columns(self, columns, table):
+        query = self.client.query(self.namespace, table)
+        if type(columns) is list:
+            for column in columns:
+                query.select(column)
+        else:
+            query.select(columns)
+        # query.where(p.aerospike.predicates.equals('product_id', 14))
+        return query
 
     def __del__(self):
         # Close the connection to the Aerospike cluster

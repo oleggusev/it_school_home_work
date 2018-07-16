@@ -9,7 +9,7 @@ start_time = time.time()
 
 merchant_id = 12345
 avatarObject = Avatar(merchant_id)
-avatarObject.run()
+avatarObject.calculate_coefficient()
 
-print('----------------------')
+print('------- Coefficients calculate time: -------')
 print(str(round((time.time() - start_time) / 60, 2)) + ' mins ')

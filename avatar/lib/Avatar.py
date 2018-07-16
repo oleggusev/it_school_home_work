@@ -11,11 +11,12 @@ class Avatar(Customer):
     def __init__(self, merchant_id):
         FileSQLite.__init__(self, merchant_id)
         AeroSpike.__init__(self)
+        Customer.__init__(self)
         self.pk_date_from = 'date_from_' + str(self.merchant_id)
 
     # main logic of avatar:
     # convert data from SQLite to AeroSpoke
-    def run(self):
+    def save_customer_actions(self):
         # TODO: only for tests
         # unlock = {'date_from': (date.today() - timedelta(30)).strftime("%Y%m%d"), 'in_progress': 0}
         # self.as_row_write(unlock, self.pk_date_from)
@@ -51,8 +52,8 @@ class Avatar(Customer):
         self.as_row_write(lock, self.pk_date_from)
         print(self.as_row_read(self.pk_date_from))
 
-        # convert SQLite data to AeroSpike
-        self.add_customers_to_db(file_paths)
+        # main logic: convert from SQLite data to AeroSpike
+        self.add_actions_to_db(file_paths)
 
         # save current date to DB - as last date which will take files ONLY from this date
         # TODO: UNLOCK current merchant process - anti-double cron launch
@@ -69,4 +70,24 @@ class Avatar(Customer):
         return True
 
 
+    def calculate_coefficient(self):
+        # TODO: only for tests
+        # unlock = {'date_from': (date.today() - timedelta(30)).strftime("%Y%m%d"), 'in_progress': 0}
+        # self.as_row_write(unlock, self.pk_date_from)
+        if not self.check_merchant():
+            return False
 
+        # TODO: LOCK current merchant process
+        # lock = {'in_progress': 1}
+        # self.as_row_write(lock, self.pk_date_from)
+        # print(self.as_row_read(self.pk_date_from))
+
+        # main logic: calculate coefficient
+        self.calculate_actions_coefficients()
+
+        # TODO: UNLOCK current merchant process - anti-double cron launch
+        # unlock = {'date_from': date.today().strftime("%Y%m%d"), 'in_progress': 0}
+        # self.as_row_write(unlock, self.pk_date_from)
+        # print(self.as_row_read(self.pk_date_from))
+
+        return True
