@@ -6,7 +6,7 @@ from avatar.lib.Model.Product.Learning import Learning
 import pandas as pd
 
 
-class Customer(AeroSpike, FileSQLite, Debug):
+class Customer(AeroSpike, FileSQLite, Debug, Learning):
     fields = {
         'unix_time',
         'customer_id',
@@ -148,30 +148,21 @@ class Customer(AeroSpike, FileSQLite, Debug):
     # aql> SHOW INDEXES test
     def calculate_actions_coefficients(self):
         # select all sorted unique products
-        query = self.as_get_columns('product_id', self.table_merchant_actions)
+        query = self.as_select_by_columns(self.table_merchant_actions, {}, 'product_id')
         (products, statistic) = self.get_unique_products(query)
-        feature_names = self.get_features()
         # cycle by products
         for product in products:
             # select actions related just to this product
-            compare = {'product_id', product}
-            query_feature = self.as_get_columns(feature_names, self.table_merchant_actions, compare)
-            # i = 0
-            # for (key, metadata, bins) in query.results():
-            #     print(bins)
-            #     i += 1
-            # print('Count : ' + str(i))
-            # print('Products : ')
-            # #print(statistic)
+            where = {'product_id', product}
+            query_feature = self.as_select_by_columns(self.table_merchant_actions, where)
             # do machine learning
-            Learning.query_feature = query_feature
-            Learning.label_name = next(iter(self.fields_label))
-            Learning.label_name_hash = self.convert_column_to_db_limit(Learning.label_name, False)
-            Learning.parent = self
-            Learning.__init__(Learning)
-            Learning.run(Learning)
+            Learning.__init__(self)
+            self.query_feature = query_feature
+            self.label_name = next(iter(self.fields_label))
+            self.label_name_hash = self.convert_column_to_db_limit(self.label_name, False)
+            estimation = Learning.run(self)
             # machine learning estimation
-
+            print('Product with Id: ' + str(product) + ' , estimation = ' + str(estimation * 100) + ' % ')
             break
 
 
@@ -193,10 +184,10 @@ class Customer(AeroSpike, FileSQLite, Debug):
         return (products_unique, sorted_by_count)
 
 
-    def get_features(self):
+    def get_alllowed_features(self):
         column_hashes = self.as_row_read(
             self.key_for_features,
             self.table_action_features
         )
 
-        return list(column_hashes.keys())
+        return column_hashes.keys() - self.fields
