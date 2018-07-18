@@ -1,9 +1,9 @@
 
 from avatar.lib.FileSQLite import FileSQLite
 from avatar.lib.AeroSpike import AeroSpike
-from avatar.lib.model.convert.product.Customer import Customer
+from avatar.lib.Model.Product.Customer import Customer
 
-from datetime import date, timedelta
+from datetime import date
 
 
 class Avatar(Customer):

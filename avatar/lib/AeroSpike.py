@@ -1,5 +1,5 @@
 import aerospike
-# from aerospike import predicates as p
+from aerospike import predicates as p
 import sys
 from avatar.lib.Debug import Debug
 
@@ -54,14 +54,14 @@ class AeroSpike(Debug):
             return False
         return row
 
-    def as_get_columns(self, columns, table):
+    def as_get_columns(self, columns, table, compare = {}):
         query = self.client.query(self.namespace, table)
-        if type(columns) is list:
-            for column in columns:
-                query.select(column)
+        if type(columns) is list or type(columns) is set:
+            query.select(*columns)
         else:
             query.select(columns)
-        # query.where(p.aerospike.predicates.equals('product_id', 14))
+        if compare:
+            query.where(p.equals(*compare))
         return query
 
     def __del__(self):

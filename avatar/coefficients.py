@@ -9,6 +9,7 @@ start_time = time.time()
 
 merchant_id = 12345
 avatarObject = Avatar(merchant_id)
+# TODO: we HAVE create Secondary AeroSpike Index for product_id manually before usage this method!!!
 avatarObject.calculate_coefficient()
 
 print('------- Coefficients calculate time: -------')
