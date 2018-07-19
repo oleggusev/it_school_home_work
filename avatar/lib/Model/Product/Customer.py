@@ -36,6 +36,13 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
     fields_label = {
         'bought_product'
     }
+    fields_string = {
+        'country',
+        'city',
+        'device_type',
+        'device_brand',
+        'device_model',
+    }
 
     key_customer = 'unix_time'
 
@@ -160,6 +167,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
             self.label_name = next(iter(self.fields_label))
             self.label_name_hash = self.convert_column_to_db_limit(self.label_name, False)
             self.allowed_features = self.get_allowed_features(productId)
+            self.productId = productId
             Learning.__init__(self)
             estimation = Learning.run(self)
 
@@ -182,7 +190,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
                   + '%' + '\t' + '\t'
                   )
 
-        return True
+            return True
 
     def get_unique_products(self, query,):
         products_count = {}
@@ -234,7 +242,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
 
     def get_count_action_by_product_id(self, productId):
         if (not self.action_statistic):
-            self.log('Customer: not statistic/data for current poduct')
+            self.log('Customer: not statistic/data for current product')
             return False
         for product, count in self.action_statistic:
             if product == productId:

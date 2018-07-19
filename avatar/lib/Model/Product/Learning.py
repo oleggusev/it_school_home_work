@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import QuantileTransformer
+from matplotlib import pyplot as plt
 import sklearn.metrics as metrics
 
 # for memory estimation
@@ -33,9 +36,13 @@ class Learning():
     # defined in Customer parent class
     is_enough_data_for_dummy = None
 
-    estimation = None
+    estimations = {}
 
     y_test = None
+
+    productId = None
+
+    LIMIT_BOUGHT_COUNT = 10
 
     def __init__(self):
         # reset if class was in cycle
@@ -43,39 +50,72 @@ class Learning():
         self.data_label = []
         self.parent = {}
         self.classifier = {}
-        self.estimation = None
+        self.estimations = {}
 
         #self.classifier = RandomForestClassifier()
-        self.classifier = LogisticRegression()
+        #self.classifier = LogisticRegression()
 
     # python3 -m memory_profiler avatar/coefficients.py
     # @profile
     def run(self):
         if not self.query_feature or not self.allowed_features or self.is_enough_data_for_dummy is None:
-            print('Learning: error - no data for ML')
-            return 0
+            self.log('Learning: error - no data for ML')
+            return False
 
         self.prepare_data_frame()
-        # split data for test AND train
-        train, test = self.stratified_split(self.data_label)
 
-        X_train = self.data_feature.iloc[train] # 80%
-        X_test = self.data_feature.iloc[test]   # 20%
+        self.log(self.data_feature)
+        bought_products = sum(self.data_label)
+        if bought_products < self.LIMIT_BOUGHT_COUNT:
+            self.log('Learning: error - not enough biught products for ML')
+            return False
 
-        y_train = self.data_label[train]
-        self.y_test = self.data_label[test]
+        self.do_cross_validation()
 
-        if (not sum(y_train)):
-            # no any positive class in train data
-            return 0.0
-        # model learn on train data
-        self.classifier.fit(X_train, y_train)
-        # model takes real data and do prediction on 20% of test data
-        self.y_pred = self.classifier.predict(X_test)
+        return self.get_the_best_estimation()
 
-        self.estimation = self.balanced_classification_rate(self.y_test, self.y_pred)
+    def do_cross_validation(self, fold = 10):
+        self.estimations[self.productId] = {}
+        for i in range(fold):
+            # split data for test AND train
+            train, test = self.stratified_split(self.data_label.copy())
 
-        return self.estimation
+            X_train = self.data_feature.iloc[train] # 80%
+            X_test = self.data_feature.iloc[test]   # 20%
+
+            y_train = self.data_label[train]
+            self.y_test = self.data_label[test]
+
+            if (not sum(y_train)):
+                # no any positive class in train data
+                continue
+            self.classifier = LogisticRegression()
+            # model learn on train data
+            self.classifier.fit(X_train, y_train)
+            # model takes real data and do prediction on 20% of test data
+            self.y_pred = self.classifier.predict(X_test)
+
+            self.collect_estimations(i)
+        return
+
+    def collect_estimations(self, fold_number):
+        bcr = self.balanced_classification_rate(self.y_test, self.y_pred)
+        accuracy_lib = 0.0
+        label_predicted = 0.0
+        if self.y_pred.any() and self.y_test.any():
+            accuracy_lib = round(Learning.accuracy_lib(Learning, self.y_test, self.y_pred) * 100, 2)
+            label_predicted = round(sum(self.y_pred) / sum(self.y_test) * 100, 2)
+        self.estimations[self.productId][fold_number] = {}
+        self.estimations[self.productId][fold_number] = {
+            'bcr': round(bcr, 2),
+            'accuracy_lib': accuracy_lib,
+            'label_predicted': label_predicted
+            #,'classifier_coefficient': self.classifier.coef_
+        }
+
+    def get_the_best_estimation(self):
+        self.printDictionary(self.estimations[self.productId])
+        return self.balanced_classification_rate(self.y_test, self.y_pred)
 
 
     # TODO: potential issue with performance memory !!! How to divide data and learn it by peaces?
@@ -96,9 +136,32 @@ class Learning():
 
         if not self.is_enough_data_for_dummy:
             # hash all data, cuz we do not use DUMMY
-            self.data_feature = self.data_feature.applymap(hash)
+            # plot: https://chrisalbon.com/python/data_wrangling/pandas_normalize_column/
+            self.normalization()
+            self.data_feature = pd.DataFrame(self.data_feature)
+            for column in self.data_feature:
+                self.histogram(self.data_feature[column], column)
 
         return self.data_feature
+
+    def normalization(self):
+        self.data_feature.fillna('0', inplace=True)
+        self.data_feature.replace(np.nan, '0', inplace=True)
+        for column in self.data_feature:
+            if column in self.fields_string:
+                # make dictionary from each column, and replace to IDs
+                self.data_feature[column] = LabelEncoder.fit_transform(LabelEncoder, self.data_feature[column])
+        qt = QuantileTransformer()
+        self.data_feature = qt.fit_transform(self.data_feature)
+        return self.data_feature
+
+    def histogram(self, col, name):
+        hist, bins = np.histogram(col, bins='auto')
+        width = 0.7 * (bins[1] - bins[0])
+        center = (bins[:-1] + bins[1:]) / 2
+        plt.bar(center, hist, align='center', width=width)
+        plt.title(name)
+        plt.show()
 
     def remove_not_allowed_features(self, row):
         result = row.copy()
