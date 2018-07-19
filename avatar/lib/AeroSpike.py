@@ -54,14 +54,14 @@ class AeroSpike(Debug):
             return False
         return row
 
-    def as_select_by_columns(self, table, where = {}, columns = None):
+    def as_select_by_columns(self, table, where_field = None, where_value = None, columns = None):
         query = self.client.query(self.namespace, table)
         if type(columns) is list or type(columns) is set:
             query.select(*columns)
         elif not columns is None:
             query.select(columns)
-        if where:
-            query.where(p.equals(*where))
+        if where_field:
+            query.where(p.equals(where_field, where_value))
         return query
 
     def __del__(self):

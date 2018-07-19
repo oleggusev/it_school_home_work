@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-
+import sklearn.metrics as metrics
 
 # for memory estimation
 # import sys
@@ -16,7 +16,7 @@ class Learning():
     label_name = None
     label_name_hash = None
 
-    # DataFarame object of query result
+    # DataFrame objects of query result
     data_feature = []
     data_label = []
 
@@ -25,30 +25,36 @@ class Learning():
 
     classifier = {}
 
+    allowed_features = []
+
+    # 0 = no
+    # 1 = yes
+    # None = we do not know the result, cuz logic was not started
+    # defined in Customer parent class
+    is_enough_data_for_dummy = None
+
     estimation = None
 
+    y_test = None
 
     def __init__(self):
-        if self.query_feature:
-            print('Learning: cannot init object - no data')
-
-        # reset all
-        query_feature = []
-        label_name = None
-        label_name_hash = None
-        data_feature = []
-        data_label = []
-        parent = {}
-        classifier = {}
-        estimation = None
+        # reset if class was in cycle
+        self.data_feature = []
+        self.data_label = []
+        self.parent = {}
+        self.classifier = {}
+        self.estimation = None
 
         #self.classifier = RandomForestClassifier()
         self.classifier = LogisticRegression()
 
-
     # python3 -m memory_profiler avatar/coefficients.py
     # @profile
     def run(self):
+        if not self.query_feature or not self.allowed_features or self.is_enough_data_for_dummy is None:
+            print('Learning: error - no data for ML')
+            return 0
+
         self.prepare_data_frame()
         # split data for test AND train
         train, test = self.stratified_split(self.data_label)
@@ -57,14 +63,17 @@ class Learning():
         X_test = self.data_feature.iloc[test]   # 20%
 
         y_train = self.data_label[train]
-        y_test = self.data_label[test]
+        self.y_test = self.data_label[test]
 
-        # model learn on train merchant
+        if (not sum(y_train)):
+            # no any positive class in train data
+            return 0.0
+        # model learn on train data
         self.classifier.fit(X_train, y_train)
-        # model takes real merchant and do prediction on 20% of test merchant
-        y_pred = self.classifier.predict(X_test)
+        # model takes real data and do prediction on 20% of test data
+        self.y_pred = self.classifier.predict(X_test)
 
-        self.estimation = self.accuracy(y_test, y_pred)
+        self.estimation = self.balanced_classification_rate(self.y_test, self.y_pred)
 
         return self.estimation
 
@@ -73,6 +82,7 @@ class Learning():
     # TODO: pandas object: 2500 rows takes 25Mb!!!
     # should I use pandas here?
     def prepare_data_frame(self):
+        self.data_feature = []
         # self.query.results() list from 2525 rows x 2000 columns takes 21Kb - it's ok
         for (key, metadata, bins) in self.query_feature.results():
             row = self.remove_not_allowed_features(bins)
@@ -84,18 +94,19 @@ class Learning():
         self.data_label = self.data_feature[self.label_name_hash]
         self.data_feature.drop([self.label_name_hash], axis=1, inplace=True)
 
+        if not self.is_enough_data_for_dummy:
+            # hash all data, cuz we do not use DUMMY
+            self.data_feature = self.data_feature.applymap(hash)
+
         return self.data_feature
 
-
     def remove_not_allowed_features(self, row):
-        allowed_features = self.get_alllowed_features()
         result = row.copy()
         for column in row:
-            if not column in allowed_features:
+            if not column in self.allowed_features:
                 del result[column]
 
         return result
-
 
     def stratified_split(self, y, proportion=0.8):
         y = np.array(y)
@@ -115,6 +126,31 @@ class Learning():
 
         return train_inds, test_inds
 
+    # @see http://scikit-learn.org/stable/modules/classes.html#module-sklearn.metrics
+    # @see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4020838/
+    # (TP + TN) / (TP + TN + FP + FN) * 100
+    def accuracy_lib(self, y_test, y_pred):
+        try:
+            return metrics.accuracy_score(y_test, y_pred)
+        except Exception as e:
+            print(e)
+            return 0.0
 
-    def accuracy(self, y_test, y_pred):
-        return 1 - sum(abs(y_test - y_pred) / len(y_test))
+    # apply BCR method when class = 1 just <=33% in result
+    # @see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4020838/
+    # sensitivity/recall = TP / (TP + FN) * 100
+    # specificity        = TN / (TN + TP) * 100
+    # @see http://scikit-learn.org/stable/modules/classes.html#module-sklearn.metrics
+    #
+    # The confusion matrix is of the following form:
+    #
+    #                       Predicted Positives     Predicted Negatives
+    #                       -------------------     --------------------
+    # True Positives	|   True Positives (TP)	    False Negatives (FN)
+    # True Negatives	|   False Positives (FP)	True Negatives (TN)
+    def balanced_classification_rate(self, y_test, y_pred):
+        tn, fp, fn, tp = metrics.confusion_matrix(y_test, y_pred).ravel()
+        sensitivity = tp / (tp + fn)
+        specificity = tn / (tn + tp)
+        balanced_classification_rate = (sensitivity + specificity) / 2
+        return balanced_classification_rate
