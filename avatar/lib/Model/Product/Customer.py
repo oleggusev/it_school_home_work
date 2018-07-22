@@ -169,18 +169,21 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
             self.productId = productId
             Learning.__init__(self)
             estimation = Learning.run(self)
+            # save coefficients to AeroSpike and use it later for Magento!
+            if self.productId in self.max and not self.max[self.productId]['bcr'].empty:
+                self.save_coefficients(self.max[self.productId])
 
             # machine learning estimation
             total_count = self.get_count_action_by_product_id(productId)
             label_predicted = 0.0
             accuracy_lib = 0.0
-            if self.y_pred.any() and self.y_test.any():
+            if len(self.y_pred) and len(self.y_test):
                 label_predicted = round(sum(self.y_pred) / sum(self.y_test) * 100, 2)
                 accuracy_lib = round(Learning.accuracy_lib(Learning, self.y_test, self.y_pred) * 100, 2)
 
             self.log('\nLast estimation:')
             self.log('Product_id: ' + str(productId) + '\t' + '\t'
-                  + 'Total data: ' + str(total_count) + '\t' + '\t'
+                  + 'Count: ' + str(total_count) + ' (' + str(len(self.data_feature)) + ')' + '\t' + '\t'
                   + 'Bought: ' + str(sum(self.data_label)) + ' = '
                   + str(round(sum(self.data_label) * 100 / total_count, 2)) + '%' + '\t' + '\t' + '\t'
                   + 'BCR = ' + str(round(estimation * 100, 2)) + '%' + '\t' + '\t' + '\t' + '\t'
@@ -251,3 +254,26 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
             if product == productId:
                 return count
         return False
+
+    def save_coefficients(self, coefficients):
+        coefficient_row = self.as_row_read(
+            'product_' + str(self.productId),
+            self.table_merchant_coefficients + str(self.merchant_id)
+        )
+        save = False
+        if coefficient_row \
+                and (float(coefficient_row['bcr'][0]) < float(coefficients['bcr'])) \
+                and (float(coefficient_row['accuracy'][0]) < float(coefficients['accuracy'])):
+            # save just when new coefficients better than old one
+            save = True
+        elif (not coefficients.empty and not coefficient_row):
+            save = True
+
+        if save:
+            self.log('Customer: saved coefficients:')
+            self.printDictionary(coefficients.to_dict())
+            self.as_row_write(
+                coefficients.to_dict(),
+                'product_' + str(self.productId),
+                self.table_merchant_coefficients + str(self.merchant_id)
+            )

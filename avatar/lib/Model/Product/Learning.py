@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
+# from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
-#from sklearn.preprocessing import QuantileTransformer
-#from sklearn.preprocessing import Normalizer
+# from sklearn.preprocessing import QuantileTransformer
+# from sklearn.preprocessing import Normalizer
 from matplotlib import pyplot as plt
 import sklearn.metrics as metrics
 
@@ -55,9 +55,9 @@ class Learning():
         self.parent = {}
         self.classifier = {}
         self.estimations = {}
-
-        #self.classifier = RandomForestClassifier()
-        #self.classifier = LogisticRegression()
+        self.max = {}
+        self.y_test = []
+        self.y_pred = []
 
     # python3 -m memory_profiler avatar/coefficients.py
     # @profile
@@ -71,16 +71,18 @@ class Learning():
         # self.log(self.data_feature)
         bought_products = sum(self.data_label)
         if bought_products < self.LIMIT_BOUGHT_COUNT:
-            self.log('Learning: error - not enough biught products for ML')
+            self.log('\nLearning: error - not enough bought products for ML')
             return False
 
         self.do_cross_validation()
 
         return self.get_the_best_estimation()
 
+    # if fold=10000 - 1.1 mins/product -> production mode
+    # if fold=1000  - 0.2 mins/product -> developer mode
     def do_cross_validation(self, fold = 1000):
         self.estimations[self.productId] = pd.DataFrame(
-            columns=['bcr', 'accuracy', 'predicted_labels', 'classifier_coefficients']
+            columns=['product_id', 'bcr', 'accuracy', 'predicted_y', 'coefficients']
         )
         for i in range(fold):
             # split data for test AND train
@@ -113,10 +115,11 @@ class Learning():
             label_predicted = round(sum(self.y_pred) / sum(self.y_test) * 100, 2)
 
         self.estimations[self.productId] = self.estimations[self.productId].append({
+            'product_id': self.productId,
             'bcr': float(round(bcr, 2)),
             'accuracy': float(accuracy_lib),
-            'predicted_labels': float(label_predicted)
-            #,'classifier_coefficients': self.classifier.coef_
+            'predicted_y': float(label_predicted),
+            'coefficients': self.classifier.coef_
         }, ignore_index=True)
 
     def get_the_best_estimation(self):
@@ -127,6 +130,11 @@ class Learning():
         estimation.sort_values(by=['rank'], ascending=False, inplace=True)
         self.log('\nMAX estimation:')
         self.log(estimation.iloc[0])
+        # save just the BEST coefficients for current product
+        self.max[self.productId] = pd.DataFrame(columns=['product_id', 'bcr', 'accuracy', 'predicted_y', 'coefficients'])
+        self.max[self.productId] = self.max[self.productId].append(
+            self.estimations[self.productId].loc[estimation.first_valid_index()]
+        , ignore_index=True)
 
         self.log('\nAVG estimations:')
         self.printDictionary(
@@ -139,9 +147,9 @@ class Learning():
                     sum(self.estimations[self.productId]['accuracy'])
                     / len(self.estimations[self.productId]['accuracy'])
                     , 2),
-                'predicted_labels': round(
-                    sum(self.estimations[self.productId]['predicted_labels'])
-                    / len(self.estimations[self.productId]['predicted_labels'])
+                'predicted_y': round(
+                    sum(self.estimations[self.productId]['predicted_y'])
+                    / len(self.estimations[self.productId]['predicted_y'])
                     , 2),
             }
         )

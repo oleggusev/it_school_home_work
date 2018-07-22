@@ -14,6 +14,7 @@ class AeroSpike(Debug):
     table_merchant_actions = 'cs_merchant_product_actions_'  # + str(self.merchant_id)
     key_for_features = 'key_for_allowed_features_'  # + str(self.merchant_id)
     table_action_features = 'cs_features_for_merchants'
+    table_merchant_coefficients = 'cs_merchant_coefficients_'
 
     def __init__(self):
         # Create a client and connect it to the cluster
