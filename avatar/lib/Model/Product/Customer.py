@@ -5,6 +5,7 @@ from avatar.lib.Model.Product.Learning import Learning
 
 import pandas as pd
 import math
+import hashlib
 
 
 class Customer(AeroSpike, FileSQLite, Debug, Learning):
@@ -139,11 +140,9 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
 
         return False
 
-    # TODO: try to replace main has by Murmurhash3, when next time new data imported
-    # it should work faster!!!
-    # http://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.FeatureHasher.html#sklearn.feature_extraction.FeatureHasher
     def convert_to_hash(self, string):
-        return str(hash(string) % 10 ** self.AS_COLUMN_LENGTH_MAX)
+        hash = hashlib.sha1(string.encode('utf-8'))
+        return str(hash.hexdigest()[0:self.AS_COLUMN_LENGTH_MAX])
 
 
     # TODO: we HAVE create Secondary AeroSpike Index for product_id manually before usage this method!!!
@@ -179,7 +178,8 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
                 label_predicted = round(sum(self.y_pred) / sum(self.y_test) * 100, 2)
                 accuracy_lib = round(Learning.accuracy_lib(Learning, self.y_test, self.y_pred) * 100, 2)
 
-            print('Product_id: ' + str(productId) + '\t' + '\t'
+            self.log('\nLast estimation:')
+            self.log('Product_id: ' + str(productId) + '\t' + '\t'
                   + 'Total data: ' + str(total_count) + '\t' + '\t'
                   + 'Bought: ' + str(sum(self.data_label)) + ' = '
                   + str(round(sum(self.data_label) * 100 / total_count, 2)) + '%' + '\t' + '\t' + '\t'
@@ -190,7 +190,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
                   + '%' + '\t' + '\t'
                   )
 
-            return True
+        return True
 
     def get_unique_products(self, query,):
         products_count = {}
@@ -199,6 +199,9 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
                 products_count[bins['product_id']] = 1
             else:
                 products_count[bins['product_id']] += 1
+        if not len(products_count):
+            self.log('Customer: merchant has 0 product actions, interrupted.')
+            return products_count
         self.action_statistic = sorted(products_count.items(), key=lambda kv: kv[1])
         self.action_statistic.reverse()
 

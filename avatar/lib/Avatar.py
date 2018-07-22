@@ -3,7 +3,7 @@ from avatar.lib.FileSQLite import FileSQLite
 from avatar.lib.AeroSpike import AeroSpike
 from avatar.lib.Model.Product.Customer import Customer
 
-from datetime import date
+from datetime import date, timedelta
 
 
 class Avatar(Customer):
@@ -18,7 +18,7 @@ class Avatar(Customer):
     # convert data from SQLite to AeroSpoke
     def save_customer_actions(self):
         # TODO: only for tests
-        # unlock = {'date_from': (date.today() - timedelta(30)).strftime("%Y%m%d"), 'in_progress': 0}
+        # unlock = {'date_from': (date.today() - timedelta(60)).strftime("%Y%m%d"), 'in_progress': 0}
         # self.as_row_write(unlock, self.pk_date_from)
         if not self.check_merchant() or not self.get_merchant_files_dir():
             return False

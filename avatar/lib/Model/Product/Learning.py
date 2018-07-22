@@ -3,10 +3,12 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import QuantileTransformer
+#from sklearn.preprocessing import QuantileTransformer
+#from sklearn.preprocessing import Normalizer
 from matplotlib import pyplot as plt
 import sklearn.metrics as metrics
 
+import math
 # for memory estimation
 # import sys
 # from memory_profiler import profile
@@ -43,6 +45,8 @@ class Learning():
     productId = None
 
     LIMIT_BOUGHT_COUNT = 10
+    THRESHOLD_UNIT_PERCENT = 25
+    THRESHOLD_ZERO_RATE = 1.6 # heuristic
 
     def __init__(self):
         # reset if class was in cycle
@@ -64,7 +68,7 @@ class Learning():
 
         self.prepare_data_frame()
 
-        self.log(self.data_feature)
+        # self.log(self.data_feature)
         bought_products = sum(self.data_label)
         if bought_products < self.LIMIT_BOUGHT_COUNT:
             self.log('Learning: error - not enough biught products for ML')
@@ -74,8 +78,10 @@ class Learning():
 
         return self.get_the_best_estimation()
 
-    def do_cross_validation(self, fold = 10):
-        self.estimations[self.productId] = {}
+    def do_cross_validation(self, fold = 1000):
+        self.estimations[self.productId] = pd.DataFrame(
+            columns=['bcr', 'accuracy', 'predicted_labels', 'classifier_coefficients']
+        )
         for i in range(fold):
             # split data for test AND train
             train, test = self.stratified_split(self.data_label.copy())
@@ -95,26 +101,50 @@ class Learning():
             # model takes real data and do prediction on 20% of test data
             self.y_pred = self.classifier.predict(X_test)
 
-            self.collect_estimations(i)
+            self.collect_estimations()
         return
 
-    def collect_estimations(self, fold_number):
+    def collect_estimations(self):
         bcr = self.balanced_classification_rate(self.y_test, self.y_pred)
         accuracy_lib = 0.0
         label_predicted = 0.0
-        if self.y_pred.any() and self.y_test.any():
-            accuracy_lib = round(Learning.accuracy_lib(Learning, self.y_test, self.y_pred) * 100, 2)
+        if len(self.y_pred) and len(self.y_test):
+            accuracy_lib = round(self.accuracy_lib(self.y_test, self.y_pred) * 100, 2)
             label_predicted = round(sum(self.y_pred) / sum(self.y_test) * 100, 2)
-        self.estimations[self.productId][fold_number] = {}
-        self.estimations[self.productId][fold_number] = {
-            'bcr': round(bcr, 2),
-            'accuracy_lib': accuracy_lib,
-            'label_predicted': label_predicted
-            #,'classifier_coefficient': self.classifier.coef_
-        }
+
+        self.estimations[self.productId] = self.estimations[self.productId].append({
+            'bcr': float(round(bcr, 2)),
+            'accuracy': float(accuracy_lib),
+            'predicted_labels': float(label_predicted)
+            #,'classifier_coefficients': self.classifier.coef_
+        }, ignore_index=True)
 
     def get_the_best_estimation(self):
-        self.printDictionary(self.estimations[self.productId])
+        estimation = self.estimations[self.productId][['bcr', 'accuracy']]
+        estimation = estimation.copy()
+        rank = estimation.rank(method='max')
+        estimation['rank'] = rank.sum(axis=1)
+        estimation.sort_values(by=['rank'], ascending=False, inplace=True)
+        self.log('\nMAX estimation:')
+        self.log(estimation.iloc[0])
+
+        self.log('\nAVG estimations:')
+        self.printDictionary(
+            {
+                'bcr': round(
+                    sum(self.estimations[self.productId]['bcr'])
+                    / len(self.estimations[self.productId]['bcr'])
+                    , 2),
+                'accuracy': round(
+                    sum(self.estimations[self.productId]['accuracy'])
+                    / len(self.estimations[self.productId]['accuracy'])
+                    , 2),
+                'predicted_labels': round(
+                    sum(self.estimations[self.productId]['predicted_labels'])
+                    / len(self.estimations[self.productId]['predicted_labels'])
+                    , 2),
+            }
+        )
         return self.balanced_classification_rate(self.y_test, self.y_pred)
 
 
@@ -131,36 +161,96 @@ class Learning():
         # self.parent.log(self.data.memory_usage(deep=True))
         self.data_feature = pd.DataFrame(self.data_feature)
 
+        if not self.is_enough_data_for_dummy:
+            self.reorganization_data_original()
+
         self.data_label = self.data_feature[self.label_name_hash]
         self.data_feature.drop([self.label_name_hash], axis=1, inplace=True)
 
         if not self.is_enough_data_for_dummy:
-            # hash all data, cuz we do not use DUMMY
-            # plot: https://chrisalbon.com/python/data_wrangling/pandas_normalize_column/
-            self.normalization()
-            self.data_feature = pd.DataFrame(self.data_feature)
-            for column in self.data_feature:
-                self.histogram(self.data_feature[column], column)
+            # convert text data to float, cuz no DUMMY
+            self.normalization_data_original()
 
         return self.data_feature
 
-    def normalization(self):
+    def reorganization_data_original(self):
+        total = len(self.data_feature[self.label_name_hash])
+        unit = sum(self.data_feature[self.label_name_hash])
+        bought_percent = (unit * 100 / total)
+
+        if bought_percent < self.THRESHOLD_UNIT_PERCENT:
+            self_data_feature = self.data_feature.copy()
+            threshold_zero_percent = (bought_percent * self.THRESHOLD_ZERO_RATE)
+
+            # filter by category does not work when, cuz BCR is 50%
+            # self_data_feature_categories_zero = self_data_feature[
+            #     (~np.isnan(self_data_feature['category_id']))
+            #     &
+            #     (self_data_feature[self.label_name_hash] == 0)
+            # ]
+            # if len(self_data_feature_categories_zero) >= total * threshold_zero_percent / 100:
+            #     # zeros with category_id(s)
+            #     zero = np.array(self_data_feature_categories_zero[self.label_name_hash] == 0)
+            # else:
+                # random zeros
+            zero = np.array(self_data_feature[self.label_name_hash] == 0)
+
+            df_zero_all = self_data_feature.iloc[zero]
+            main_percent, rest_percent = self.stratified_split(df_zero_all[self.label_name_hash], threshold_zero_percent / 100)
+            df_zero_percent = df_zero_all.iloc[main_percent]
+            unit_indexes = np.array(self_data_feature[self.label_name_hash] == 1)
+            # merge units and zeros
+            self.data_feature = pd.concat([self_data_feature.iloc[unit_indexes], df_zero_percent])
+            self.data_feature.sort_index(inplace=True)
+
+
+    def normalization_data_original(self):
         self.data_feature.fillna('0', inplace=True)
         self.data_feature.replace(np.nan, '0', inplace=True)
         for column in self.data_feature:
             if column in self.fields_string:
                 # make dictionary from each column, and replace to IDs
                 self.data_feature[column] = LabelEncoder.fit_transform(LabelEncoder, self.data_feature[column])
-        qt = QuantileTransformer()
-        self.data_feature = qt.fit_transform(self.data_feature)
+            #convert data column object, text -> float
+            self.data_feature[column] = self.data_feature[column].astype(str).astype(float)
+            if self.data_feature[column].dtype == object:
+                self.data_feature[column] = self.data_feature[column].object.replace('(\D+)', '').astype(float)
+
+
+        # self.data_feature.hist()
+        # self_data_feature = self.data_feature.copy()
+
+        # qt = QuantileTransformer(output_distribution='normal')
+        # self.data_feature = qt.fit_transform(self.data_feature)
+
+        # normalizer = Normalizer()
+        # self_data_feature = normalizer.transform(self_data_feature)
+        # self.data_feature = pd.DataFrame(self_data_feature)
+        #self.data_feature.hist()
+
+        # no sense to use it - the result is -1% or -2% as with LabelEncoder()!!!
+        # for column_name in self.data_feature:
+        #     column = self.data_feature[column_name]
+        #
+        #     if abs(column.mean() - column.median()) / column.mean() > 0.5:
+        #         mean = column.median()
+        #     else:
+        #         mean = column.mean()
+        #
+        #     std = column.std()
+        #     self.data_feature[column_name] = (column - mean) / std
+
+        #self.data_feature.hist()
+        #plt.show()
+
         return self.data_feature
 
-    def histogram(self, col, name):
+    def histogram(self, col):
         hist, bins = np.histogram(col, bins='auto')
         width = 0.7 * (bins[1] - bins[0])
         center = (bins[:-1] + bins[1:]) / 2
         plt.bar(center, hist, align='center', width=width)
-        plt.title(name)
+        #plt.title(name)
         plt.show()
 
     def remove_not_allowed_features(self, row):
