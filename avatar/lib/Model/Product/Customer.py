@@ -83,7 +83,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
 
     # TRUNCATE set:
     # vagrant ssh
-    # asinfo -v "truncate:namespace=test;set=cs_product_customers"
+    # asinfo -v "truncate:namespace=test;set=cs_merchant_coefficients_12345"
     def save_to_db(self, products):
         record = {}
         products_list = products.to_dict('records')
@@ -166,12 +166,12 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
             self.label_name = next(iter(self.fields_label))
             self.label_name_hash = self.convert_column_to_db_limit(self.label_name, False)
             self.allowed_features = self.get_allowed_features(productId)
-            self.productId = productId
+            self.entity_id = productId
             Learning.__init__(self)
             estimation = Learning.run(self)
             # save coefficients to AeroSpike and use it later for Magento!
-            if self.productId in self.max and not self.max[self.productId]['bcr'].empty:
-                self.save_coefficients(self.max[self.productId])
+            if self.entity_id in self.max and not self.max[self.entity_id]['bcr'].empty:
+                self.save_coefficients(self.max[self.entity_id])
 
             # machine learning estimation
             total_count = self.get_count_action_by_product_id(productId)
@@ -182,7 +182,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
                 accuracy_lib = round(Learning.accuracy_lib(Learning, self.y_test, self.y_pred) * 100, 2)
 
             self.log('\nLast estimation:')
-            self.log('Product_id: ' + str(productId) + '\t' + '\t'
+            self.log(self.entity_type +'_Id: ' + str(productId) + '\t' + '\t'
                   + 'Count: ' + str(total_count) + ' (' + str(len(self.data_feature)) + ')' + '\t' + '\t'
                   + 'Bought: ' + str(sum(self.data_label)) + ' = '
                   + str(round(sum(self.data_label) * 100 / total_count, 2)) + '%' + '\t' + '\t' + '\t'
@@ -241,9 +241,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
             return fields
         else:
             self.is_enough_data_for_dummy = None
-            self.log('Customer: error - not enough actions data for such count of features:')
-            self.log('Customer: error - count(actions) < count(features) * ln(count(features))')
-            self.log('Customer: error - STOP learning for product id = ' + str(productId))
+            self.log('Customer: not enough actions data for such count of features product_id = ' + str(productId))
             return []
 
     def get_count_action_by_product_id(self, productId):
@@ -257,7 +255,7 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
 
     def save_coefficients(self, coefficients):
         coefficient_row = self.as_row_read(
-            'product_' + str(self.productId),
+            self.entity_type + '_' + str(self.entity_id),
             self.table_merchant_coefficients + str(self.merchant_id)
         )
         save = False
@@ -270,10 +268,10 @@ class Customer(AeroSpike, FileSQLite, Debug, Learning):
             save = True
 
         if save:
-            self.log('Customer: saved coefficients:')
-            self.printDictionary(coefficients.to_dict())
+            self.log('Customer: saved coefficients')
+            #self.printDictionary(coefficients.to_dict())
             self.as_row_write(
                 coefficients.to_dict(),
-                'product_' + str(self.productId),
+                self.entity_type + '_' + str(self.entity_id),
                 self.table_merchant_coefficients + str(self.merchant_id)
             )

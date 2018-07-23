@@ -42,9 +42,11 @@ class Learning():
 
     y_test = None
 
-    productId = None
+    entity_id = None
 
-    LIMIT_BOUGHT_COUNT = 10
+    entity_type = 'product'
+
+    # LIMIT_BOUGHT_COUNT = 10
     THRESHOLD_UNIT_PERCENT = 25
     THRESHOLD_ZERO_RATE = 1.6 # heuristic
 
@@ -66,12 +68,7 @@ class Learning():
             self.log('Learning: error - no data for ML')
             return False
 
-        self.prepare_data_frame()
-
-        # self.log(self.data_feature)
-        bought_products = sum(self.data_label)
-        if bought_products < self.LIMIT_BOUGHT_COUNT:
-            self.log('\nLearning: error - not enough bought products for ML')
+        if not len(self.prepare_data_frame()):
             return False
 
         self.do_cross_validation()
@@ -81,8 +78,8 @@ class Learning():
     # if fold=10000 - 1.1 mins/product -> production mode
     # if fold=1000  - 0.2 mins/product -> developer mode
     def do_cross_validation(self, fold = 1000):
-        self.estimations[self.productId] = pd.DataFrame(
-            columns=['product_id', 'bcr', 'accuracy', 'predicted_y', 'coefficients']
+        self.estimations[self.entity_id] = pd.DataFrame(
+            columns=['type', 'id', 'bcr', 'accuracy', 'predicted_y', 'coefficients']
         )
         for i in range(fold):
             # split data for test AND train
@@ -114,8 +111,9 @@ class Learning():
             accuracy_lib = round(self.accuracy_lib(self.y_test, self.y_pred) * 100, 2)
             label_predicted = round(sum(self.y_pred) / sum(self.y_test) * 100, 2)
 
-        self.estimations[self.productId] = self.estimations[self.productId].append({
-            'product_id': self.productId,
+        self.estimations[self.entity_id] = self.estimations[self.entity_id].append({
+            'type': self.entity_type,
+            'id': self.entity_id,
             'bcr': float(round(bcr, 2)),
             'accuracy': float(accuracy_lib),
             'predicted_y': float(label_predicted),
@@ -123,7 +121,7 @@ class Learning():
         }, ignore_index=True)
 
     def get_the_best_estimation(self):
-        estimation = self.estimations[self.productId][['bcr', 'accuracy']]
+        estimation = self.estimations[self.entity_id][['bcr', 'accuracy']]
         estimation = estimation.copy()
         rank = estimation.rank(method='max')
         estimation['rank'] = rank.sum(axis=1)
@@ -131,25 +129,27 @@ class Learning():
         self.log('\nMAX estimation:')
         self.log(estimation.iloc[0])
         # save just the BEST coefficients for current product
-        self.max[self.productId] = pd.DataFrame(columns=['product_id', 'bcr', 'accuracy', 'predicted_y', 'coefficients'])
-        self.max[self.productId] = self.max[self.productId].append(
-            self.estimations[self.productId].loc[estimation.first_valid_index()]
+        self.max[self.entity_id] = pd.DataFrame(
+            columns=['type', 'id', 'bcr', 'accuracy', 'predicted_y', 'coefficients']
+        )
+        self.max[self.entity_id] = self.max[self.entity_id].append(
+            self.estimations[self.entity_id].loc[estimation.first_valid_index()]
         , ignore_index=True)
 
         self.log('\nAVG estimations:')
         self.printDictionary(
             {
                 'bcr': round(
-                    sum(self.estimations[self.productId]['bcr'])
-                    / len(self.estimations[self.productId]['bcr'])
+                    sum(self.estimations[self.entity_id]['bcr'])
+                    / len(self.estimations[self.entity_id]['bcr'])
                     , 2),
                 'accuracy': round(
-                    sum(self.estimations[self.productId]['accuracy'])
-                    / len(self.estimations[self.productId]['accuracy'])
+                    sum(self.estimations[self.entity_id]['accuracy'])
+                    / len(self.estimations[self.entity_id]['accuracy'])
                     , 2),
                 'predicted_y': round(
-                    sum(self.estimations[self.productId]['predicted_y'])
-                    / len(self.estimations[self.productId]['predicted_y'])
+                    sum(self.estimations[self.entity_id]['predicted_y'])
+                    / len(self.estimations[self.entity_id]['predicted_y'])
                     , 2),
             }
         )
@@ -171,6 +171,10 @@ class Learning():
 
         if not self.is_enough_data_for_dummy:
             self.reorganization_data_original()
+
+        if len(self.data_feature) <= len(self.fields_categorized) * math.log(len(self.fields_categorized)):
+            self.log('\nLearning: not enough actions for Machine Learning = ' + str(len(self.data_feature)))
+            return {}
 
         self.data_label = self.data_feature[self.label_name_hash]
         self.data_feature.drop([self.label_name_hash], axis=1, inplace=True)
@@ -253,14 +257,6 @@ class Learning():
 
         return self.data_feature
 
-    def histogram(self, col):
-        hist, bins = np.histogram(col, bins='auto')
-        width = 0.7 * (bins[1] - bins[0])
-        center = (bins[:-1] + bins[1:]) / 2
-        plt.bar(center, hist, align='center', width=width)
-        #plt.title(name)
-        plt.show()
-
     def remove_not_allowed_features(self, row):
         result = row.copy()
         for column in row:
@@ -311,7 +307,18 @@ class Learning():
     # True Negatives	|   False Positives (FP)	True Negatives (TN)
     def balanced_classification_rate(self, y_test, y_pred):
         tn, fp, fn, tp = metrics.confusion_matrix(y_test, y_pred).ravel()
+        if not tn:
+            tn = 0
+        if not fp:
+            fp = 0
+        if not fn:
+            fn = 0
+        if not tp:
+            tp = 0
         sensitivity = tp / (tp + fn)
-        specificity = tn / (tn + tp)
+        if tp or tn:
+            specificity = tn / (tn + tp)
+        else:
+            specificity = 0
         balanced_classification_rate = (sensitivity + specificity) / 2
         return balanced_classification_rate
